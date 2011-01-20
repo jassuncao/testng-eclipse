@@ -13,6 +13,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.Wizard;
@@ -61,10 +62,10 @@ public class NewTestNGClassWizard extends Wizard implements INewWizard {
 	 * Adding the pages to the wizard.
 	 */
 	@Override
-  public void addPages() {
-    List<JavaElement> elements = org.testng.eclipse.util.Utils.getSelectedJavaElements();
-		if (elements.size() > 0) {
-		  m_methodPage = new TestNGMethodWizardPage(elements);
+  public void addPages() {   
+    ICompilationUnit compilationUnit = org.testng.eclipse.util.Utils.getSelectedCompilationUnit();
+		if (compilationUnit!=null) {
+		  m_methodPage = new TestNGMethodWizardPage(compilationUnit);
 		  addPage(m_methodPage);
 		}
 		m_page = new NewTestNGClassWizardPage();

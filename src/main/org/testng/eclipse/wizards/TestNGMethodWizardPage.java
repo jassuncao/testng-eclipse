@@ -1,5 +1,6 @@
 package org.testng.eclipse.wizards;
 
+import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaModelException;
@@ -31,21 +32,19 @@ public class TestNGMethodWizardPage extends WizardPage {
   private List<String> m_elements = Lists.newArrayList();
   private Table m_table;
 
-  protected TestNGMethodWizardPage(List<JavaElement> elements) {
+  protected TestNGMethodWizardPage(ICompilationUnit compilationUnit) {
     super(ResourceUtil.getString("NewTestNGClassWizardPage.title"));
     setTitle(ResourceUtil.getString("NewTestNGClassWizardPage.title"));
     setDescription(ResourceUtil.getString("TestNGMethodWizardPage.description"));
-    for (JavaElement je : elements) {
-      if (je.compilationUnit != null) {
-        try {
-          for (IType type : je.compilationUnit.getTypes()) {
-            for (IMethod method : type.getMethods()) {
-              m_elements.add(method.getElementName());
-            }
+    if (compilationUnit != null) {
+      try {
+        for (IType type : compilationUnit.getTypes()) {
+          for (IMethod method : type.getMethods()) {
+            m_elements.add(method.getElementName());
           }
-        } catch(JavaModelException ex) {
-          // ignore
         }
+      } catch(JavaModelException ex) {
+        // ignore
       }
     }
     Collections.sort(m_elements);

@@ -177,18 +177,14 @@ public class Utils {
       //
       // No selection, extract the Java information from the current editor, if applicable
       //
-      IEditorReference[] editors = page.getEditorReferences();
-//        workbench.getActiveWorkbenchWindow().getActivePage().getEditorReferences();
-      for (IEditorReference ref : editors) {
-        IEditorPart editor = ref.getEditor(false);
-        if (editor != null) {
-          ITypeRoot root = JavaUI.getEditorInputTypeRoot(editor.getEditorInput());
-          if (root != null && root.getElementType() == IJavaElement.COMPILATION_UNIT) {
-            result.add(convertToJavaElement(root));
-          }
+      
+      IEditorPart editor = page.getActiveEditor();
+      if (editor != null) {
+        ITypeRoot root = JavaUI.getEditorInputTypeRoot(editor.getEditorInput());
+        if (root != null && root.getElementType() == IJavaElement.COMPILATION_UNIT) {
+          result.add(convertToJavaElement(root));
         }
       }
-
     }
 
     return result;
@@ -245,4 +241,39 @@ public class Utils {
     }
     return result;
   }
+
+ 
+  public static ICompilationUnit getSelectedCompilationUnit() {
+    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+    ISelection selection = page.getSelection();
+    if (selection instanceof TreeSelection) {
+      //
+      // If we have a selection in a tree view, check if it is a compilation unit
+      //
+      TreeSelection sel = (TreeSelection) selection;
+      for (Iterator it = sel.iterator(); it.hasNext();) {
+        Object element = it.next();        
+        if (element instanceof IFile) {
+          IJavaElement je = JavaCore.create((IFile) element);
+          if (je instanceof ICompilationUnit) {
+            return (ICompilationUnit) je;
+          }
+        }
+        else if (element instanceof ICompilationUnit) {
+          return (ICompilationUnit) element;
+        }       
+      }
+    }    
+    //
+    // No compilation unit selected in the tree view. Let's try the active editor
+    //     
+    IEditorPart editor = page.getActiveEditor();
+    if (editor != null) {
+      ITypeRoot root = JavaUI.getEditorInputTypeRoot(editor.getEditorInput());
+      if (root != null && root.getElementType() == IJavaElement.COMPILATION_UNIT) {
+        return (ICompilationUnit)root;
+      }
+    }
+    return null;
+  }  
 }
