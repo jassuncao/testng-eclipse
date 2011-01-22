@@ -1,5 +1,12 @@
 package org.testng.eclipse.wizards;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Collections;
+import java.util.List;
+
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -12,8 +19,6 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.core.runtime.Status;
-import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.Wizard;
@@ -24,17 +29,10 @@ import org.eclipse.ui.IWorkbenchWizard;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.ide.IDE;
+import org.testng.eclipse.TestNGPlugin;
 import org.testng.eclipse.ui.util.Utils;
 import org.testng.eclipse.util.ResourceUtil;
 import org.testng.eclipse.util.SuiteGenerator;
-import org.testng.eclipse.util.Utils.JavaElement;
-
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * This is a sample new wizard. Its role is to create a new file 
@@ -49,6 +47,7 @@ import java.util.List;
 public class NewTestNGClassWizard extends Wizard implements INewWizard {
 	private NewTestNGClassWizardPage m_page;
   private TestNGMethodWizardPage m_methodPage;
+  private IStructuredSelection m_selection;
 
 	/**
 	 * Constructor for NewTestNGClassWizard.
@@ -58,18 +57,20 @@ public class NewTestNGClassWizard extends Wizard implements INewWizard {
 		setNeedsProgressMonitor(true);
 	}
 	
+	public IStructuredSelection getSelection() {
+	  return m_selection;
+	}
+	
 	/**
 	 * Adding the pages to the wizard.
 	 */
 	@Override
-  public void addPages() {   
-    ICompilationUnit compilationUnit = org.testng.eclipse.util.Utils.getSelectedCompilationUnit();
-		if (compilationUnit!=null) {
-		  m_methodPage = new TestNGMethodWizardPage(compilationUnit);
-		  addPage(m_methodPage);
-		}
-		m_page = new NewTestNGClassWizardPage();
-		addPage(m_page);
+  public void addPages() {	  
+	  m_methodPage = new TestNGMethodWizardPage();
+	  m_page = new NewTestNGClassWizardPage(m_methodPage);
+    m_page.init(getSelection());
+    addPage(m_page);
+    addPage(m_methodPage);
 	}
 
 	/**
@@ -88,7 +89,7 @@ public class NewTestNGClassWizard extends Wizard implements INewWizard {
       return doFinish(containerName, packageName, className, m_page.getXmlFile(), methods,
           new NullProgressMonitor());
     } catch (CoreException e) {
-      e.printStackTrace();
+      TestNGPlugin.log(e);
     }
 //		IRunnableWithProgress op = new IRunnableWithProgress() {
 //			public void run(IProgressMonitor monitor) throws InvocationTargetException {
@@ -266,7 +267,7 @@ public class NewTestNGClassWizard extends Wizard implements INewWizard {
     }
 
     String contents =
-	      "package " + m_page.getPackage() + ";\n\n"
+	      "package " + m_page.getPackageName() + ";\n\n"
 	      + imports
 	      + "\n"
 	      + "public class " + className + " {\n"
@@ -300,8 +301,7 @@ public class NewTestNGClassWizard extends Wizard implements INewWizard {
   }
 
   private void throwCoreException(String message) throws CoreException {
-		IStatus status =
-			new Status(IStatus.ERROR, "org.testng.eclipse", IStatus.OK, message, null);
+    IStatus status = TestNGStatus.createError(message);		
 		throw new CoreException(status);
 	}
 
@@ -310,7 +310,8 @@ public class NewTestNGClassWizard extends Wizard implements INewWizard {
 	 * we can initialize from it.
 	 * @see IWorkbenchWizard#init(IWorkbench, IStructuredSelection)
 	 */
-  public void init(IWorkbench workbench, IStructuredSelection selection) {
+  public void init(IWorkbench workbench, IStructuredSelection currentSelection) {
+    m_selection= currentSelection;
 	}
 
 }

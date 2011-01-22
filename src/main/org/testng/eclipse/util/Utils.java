@@ -3,10 +3,12 @@ package org.testng.eclipse.util;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.jdt.core.Flags;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.IMember;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.IType;
@@ -241,39 +243,23 @@ public class Utils {
     }
     return result;
   }
+  
+  public static boolean isVisible(IMember member, IPackageFragment pack) throws JavaModelException {
 
- 
-  public static ICompilationUnit getSelectedCompilationUnit() {
-    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
-    ISelection selection = page.getSelection();
-    if (selection instanceof TreeSelection) {
-      //
-      // If we have a selection in a tree view, check if it is a compilation unit
-      //
-      TreeSelection sel = (TreeSelection) selection;
-      for (Iterator it = sel.iterator(); it.hasNext();) {
-        Object element = it.next();        
-        if (element instanceof IFile) {
-          IJavaElement je = JavaCore.create((IFile) element);
-          if (je instanceof ICompilationUnit) {
-            return (ICompilationUnit) je;
-          }
-        }
-        else if (element instanceof ICompilationUnit) {
-          return (ICompilationUnit) element;
-        }       
-      }
-    }    
-    //
-    // No compilation unit selected in the tree view. Let's try the active editor
-    //     
-    IEditorPart editor = page.getActiveEditor();
-    if (editor != null) {
-      ITypeRoot root = JavaUI.getEditorInputTypeRoot(editor.getEditorInput());
-      if (root != null && root.getElementType() == IJavaElement.COMPILATION_UNIT) {
-        return (ICompilationUnit)root;
-      }
+    int type= member.getElementType();
+    if  (type == IJavaElement.INITIALIZER ||  (type == IJavaElement.METHOD && member.getElementName().startsWith("<"))) { //$NON-NLS-1$
+      return false;
     }
-    return null;
-  }  
+
+    int otherflags= member.getFlags();
+    IType declaringType= member.getDeclaringType();
+    if (Flags.isPublic(otherflags) || (declaringType != null && declaringType.isInterface())) {
+      return true;
+    } else if (Flags.isPrivate(otherflags)) {
+      return false;
+    }
+
+    IPackageFragment otherpack= (IPackageFragment) member.getAncestor(IJavaElement.PACKAGE_FRAGMENT);
+    return (pack != null && otherpack != null && pack.getElementName().equals(otherpack.getElementName()));
+  }
 }
