@@ -124,6 +124,14 @@
          <contextualLaunch>
             <enablement>
                <with variable="selection">
+               <count value="1"/>
+               	  <iterate>
+                     <adapt type="org.eclipse.jdt.core.IJavaElement">
+		                <test property="org.eclipse.jdt.core.isInJavaProject"/>		                
+		                <test property="org.eclipse.jdt.core.hasTypeOnClasspath" value="org.testng.TestNG"/>		                
+		                <test property="org.testng.eclipse.isTest" forcePluginActivation="true"/>		                
+		             </adapt>
+		          </iterate>
 <!--
                   <iterate>
                     <or>
@@ -208,7 +216,7 @@
             namespace="org.testng.eclipse"
             type="org.eclipse.core.runtime.IAdaptable"
             class="org.testng.eclipse.launch.tester.TestNGPropertyTester"
-            id="org.testng.eclipse.launch.tester.JUnitPropertyTester">
+            id="org.testng.eclipse.launch.tester.TestNGPropertyTester">
       </propertyTester>
      
    </extension>
@@ -364,9 +372,16 @@
         <menu label="TestNG">
           <visibleWhen>
               <iterate>
+              <adapt type="org.eclipse.jdt.core.IJavaElement">
+		                <test property="org.eclipse.jdt.core.isInJavaProject"/>
+		                <instanceof value="org.eclipse.jdt.core.IJavaElement" />		                		                
+		                <test property="org.eclipse.jdt.junit.canLaunchAsJUnit" forcePluginActivation="true"/>
+		             </adapt>
+              <!--
                  <adapt type="org.eclipse.jdt.core.IJavaElement">
                    <instanceof value="org.eclipse.jdt.core.IJavaElement" />
                  </adapt>
+                 -->
               </iterate>
           </visibleWhen>
           <command

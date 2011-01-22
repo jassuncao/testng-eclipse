@@ -6,26 +6,24 @@ import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.jdt.core.IJavaElement;
 
 public class TestNGPropertyTester extends PropertyTester {
+  
+  private static final String PROPERTY_IS_TEST= "isTest";
+  private static final String PROPERTY_IS_SUITE="isSuite";  
+  
   private JavaTypeExtender m_typeExtender= new JavaTypeExtender();
   private FileExtender m_fileExtender= new FileExtender();
   
   public boolean test(Object receiver, String property, Object[] args, Object expectedValue) {
-    boolean result = false;
     if (!(receiver instanceof IAdaptable)) {
       throw new IllegalArgumentException("Element must be of type 'IAdaptable', is " + receiver == null ? "null" : receiver.getClass().getName()); //$NON-NLS-1$ //$NON-NLS-2$
+    }   
+    if (PROPERTY_IS_TEST.equals(property)) { 
+      return isTestClass(receiver, property, args, expectedValue);      
     }
-    if (!"isTest".equals(property) && !"isSuite".equals(property)) {
-      throw new IllegalArgumentException("Unknown test property '" + property +"'");
-    }
-
-    if("isTest".equals(property)) {
-      result = isTestClass(receiver, property, args, expectedValue);
-    }
-    else {
-      result = isTestSuite(receiver, property, args, expectedValue);
-    }
-
-    return true;
+    else if(PROPERTY_IS_SUITE.equals(property)){
+      return isTestSuite(receiver, property, args, expectedValue);
+    }    
+    throw new IllegalArgumentException("Unknown test property '" + property + "'");       
   }
 
   private boolean isTestClass(Object receiver, String property, Object[] args, Object expectedValue) {
