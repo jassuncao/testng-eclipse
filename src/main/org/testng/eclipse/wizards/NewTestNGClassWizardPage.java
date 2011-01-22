@@ -98,9 +98,56 @@ public class NewTestNGClassWizardPage extends NewTypeWizardPage  {
     createContainerControls(composite, nColumns);
     createPackageControls(composite, nColumns);
     createSeparator(composite, nColumns);
-    createTypeNameControls(composite, nColumns);
-    createSeparator(composite, nColumns);
     createClassUnderTestControls(composite, nColumns);
+    createSeparator(composite, nColumns);
+    createTypeNameControls(composite, nColumns);    
+  }
+  
+  private void createBottom(Composite parent) {
+    //
+    // Annotations
+    //
+    {
+      Group g = new Group(parent, SWT.SHADOW_ETCHED_OUT);
+      g.setText("Annotations");
+      GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+      g.setLayoutData(gd);
+
+      GridLayout layout = new GridLayout();
+      g.setLayout(layout);
+      layout.numColumns = 3;
+
+      for (String label : ANNOTATIONS) {
+        if ("".equals(label)) {
+          new Label(g, SWT.NONE);
+        } else {
+          Button b = new Button(g, "".equals(label) ? SWT.None : SWT.CHECK);
+          m_annotations.put(label, b);
+          b.setText("@" + label);
+        }
+      }
+    }
+
+    //
+    // XML suite file
+    //
+    {
+      Composite container = SWTUtil.createGridContainer(parent, 2);
+
+      //
+      // Label
+      //
+      Label label = new Label(container, SWT.NULL);
+      label.setText(ResourceUtil.getString("TestNG.newClass.suitePath"));
+
+      //
+      // Text widget
+      //
+      m_xmlFilePath = new Text(container, SWT.SINGLE | SWT.BORDER);
+      GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_FILL | GridData.GRAB_HORIZONTAL);
+      gd.grabExcessHorizontalSpace = true;
+      m_xmlFilePath.setLayoutData(gd);
+    }
   }
   
   /**
@@ -110,7 +157,7 @@ public class NewTestNGClassWizardPage extends NewTypeWizardPage  {
    * @param composite the parent composite
    * @param nColumns number of columns to span
    */
-  protected void createClassUnderTestControls(Composite composite, int nColumns) {
+  private void createClassUnderTestControls(Composite composite, int nColumns) {
     Label classUnderTestLabel= new Label(composite, SWT.LEFT | SWT.WRAP);
     classUnderTestLabel.setFont(composite.getFont());
     classUnderTestLabel.setText("C&lass under test:");
@@ -159,7 +206,7 @@ public class NewTestNGClassWizardPage extends NewTypeWizardPage  {
     }
   }
     
-  protected IStatus classUnderTestChanged() {    
+  private IStatus classUnderTestChanged() {    
     m_classUnderTest= null;
 
     IPackageFragmentRoot root= getPackageFragmentRoot();
@@ -198,7 +245,7 @@ public class NewTestNGClassWizardPage extends NewTypeWizardPage  {
     return TestNGStatus.createOK();
   }
   
-  private IType resolveClassNameToType(IJavaProject jproject, IPackageFragment pack, String classToTestName) throws JavaModelException {
+  private static IType resolveClassNameToType(IJavaProject jproject, IPackageFragment pack, String classToTestName) throws JavaModelException {
     if (!jproject.exists()) {
       return null;
     }
@@ -274,53 +321,6 @@ public class NewTestNGClassWizardPage extends NewTypeWizardPage  {
       TestNGPlugin.log(e);
     }
     return null;
-  }
-
-  private void createBottom(Composite parent) {
-    //
-    // Annotations
-    //
-    {
-      Group g = new Group(parent, SWT.SHADOW_ETCHED_OUT);
-      g.setText("Annotations");
-      GridData gd = new GridData(GridData.FILL_HORIZONTAL);
-      g.setLayoutData(gd);
-
-      GridLayout layout = new GridLayout();
-      g.setLayout(layout);
-      layout.numColumns = 3;
-
-      for (String label : ANNOTATIONS) {
-        if ("".equals(label)) {
-          new Label(g, SWT.NONE);
-        } else {
-          Button b = new Button(g, "".equals(label) ? SWT.None : SWT.CHECK);
-          m_annotations.put(label, b);
-          b.setText("@" + label);
-        }
-      }
-    }
-
-    //
-    // XML suite file
-    //
-    {
-      Composite container = SWTUtil.createGridContainer(parent, 2);
-
-      //
-      // Label
-      //
-      Label label = new Label(container, SWT.NULL);
-      label.setText(ResourceUtil.getString("TestNG.newClass.suitePath"));
-
-      //
-      // Text widget
-      //
-      m_xmlFilePath = new Text(container, SWT.SINGLE | SWT.BORDER);
-      GridData gd = new GridData(GridData.HORIZONTAL_ALIGN_FILL | GridData.GRAB_HORIZONTAL);
-      gd.grabExcessHorizontalSpace = true;
-      m_xmlFilePath.setLayoutData(gd);
-    }
   }
   
   public void init(IStructuredSelection selection) {
