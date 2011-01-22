@@ -1,5 +1,13 @@
 package org.testng.eclipse.ui;
 
+import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.Vector;
+
 import org.eclipse.core.internal.resources.Workspace;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
@@ -35,6 +43,8 @@ import org.eclipse.jface.util.PropertyChangeEvent;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
+import org.eclipse.swt.events.ControlAdapter;
+import org.eclipse.swt.events.ControlEvent;
 import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.events.KeyListener;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -45,7 +55,6 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
@@ -93,14 +102,6 @@ import org.testng.remote.strprotocol.SuiteMessage;
 import org.testng.remote.strprotocol.TestMessage;
 import org.testng.remote.strprotocol.TestResultMessage;
 
-import java.net.SocketTimeoutException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.Vector;
-
 /**
  * A ViewPart that shows the results of a test run.
  *
@@ -109,6 +110,12 @@ import java.util.Vector;
 public class TestRunnerViewPart extends ViewPart 
 implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
 
+  private enum ViewOrientation{
+    AUTOMATIC,
+    VERTICAL,
+    HORIZONTAL
+  }
+  
   /** used by IWorkbenchSiteProgressService */
   private static final Object FAMILY_RUN = new Object();
 
@@ -140,22 +147,17 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   /** The currently active run tab. */
   private TestRunTab m_activeRunTab;
 
-  // Orientations
-  static final int VIEW_ORIENTATION_VERTICAL = 0;
-  static final int VIEW_ORIENTATION_HORIZONTAL = 1;
-  static final int VIEW_ORIENTATION_AUTOMATIC = 2;
-
   /**
-   * The current orientation; either <code>VIEW_ORIENTATION_HORIZONTAL</code>
+   * The desired orientation; either <code>VIEW_ORIENTATION_HORIZONTAL</code>
    * <code>VIEW_ORIENTATION_VERTICAL</code>, or <code>VIEW_ORIENTATION_AUTOMATIC</code>.
    */
-  private int fOrientation = VIEW_ORIENTATION_AUTOMATIC;
+  private ViewOrientation m_desiredOrientation = ViewOrientation.AUTOMATIC;
 
   /**
-   * The current orientation; either <code>VIEW_ORIENTATION_HORIZONTAL</code>
+   * The actual orientation; either <code>VIEW_ORIENTATION_HORIZONTAL</code>
    * <code>VIEW_ORIENTATION_VERTICAL</code>.
    */
-  private int fCurrentOrientation;
+  private ViewOrientation m_effectiveOrientation;
 
   protected CounterPanel     m_counterPanel;
   private Composite   m_counterComposite;
@@ -255,7 +257,6 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     ppp("Init, memento:" + memento);
     super.init(site, memento);
     m_stateMemento = memento;
-
     IWorkbenchSiteProgressService progressService = getProgressService();
     if(progressService != null) {
       progressService.showBusyForFamily(TestRunnerViewPart.FAMILY_RUN);
@@ -283,54 +284,55 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
       trt.restoreState(memento);
     }
 
-    Integer orientation = memento.getInteger(TAG_ORIENTATION);
-    if(orientation != null) {
-      fOrientation = orientation.intValue();
-    }
-
-    computeOrientation();
-  }
-
-  void computeOrientation() {
-    if (fOrientation != VIEW_ORIENTATION_AUTOMATIC) {
-      fCurrentOrientation = fOrientation;
-      setOrientation(fCurrentOrientation);
-    }
-    else {
-      Point size = m_parentComposite.getSize();
-      if((size.x != 0) && (size.y != 0)) {
-        if(size.x > size.y) {
-          setOrientation(VIEW_ORIENTATION_HORIZONTAL);
-        }
-        else {
-          setOrientation(VIEW_ORIENTATION_VERTICAL);
-        }
+    ViewOrientation orientation = ViewOrientation.AUTOMATIC;    
+    String tmp = memento.getString(TAG_ORIENTATION);    
+    if(tmp != null) {      
+      try{
+        orientation = ViewOrientation.valueOf(tmp);
       }
+      catch(IllegalArgumentException e){
+        //Ignore
+      }      
     }
+    setDesiredOrientation(orientation);
   }
 
-  private void setOrientation(int orientation) {
-
-    boolean horizontal = orientation == VIEW_ORIENTATION_HORIZONTAL;
-    for (TestRunTab trt : m_tabsList) {
-      trt.setOrientation(horizontal);
-    }
-
+  private void setDesiredOrientation(ViewOrientation viewOrientation) {
+    m_desiredOrientation = viewOrientation;
     for(int i = 0; i < fToggleOrientationActions.length; ++i) {
       fToggleOrientationActions[i].setChecked(
-          fOrientation == fToggleOrientationActions[i].getOrientation());
+          m_desiredOrientation == fToggleOrientationActions[i].getOrientation());
     }
-    fCurrentOrientation = orientation;
+    if(m_desiredOrientation==ViewOrientation.AUTOMATIC){
+      viewOrientation = detectOrientation();
+    }
+    setEffectiveOrientation(viewOrientation);   
+  }
+  
+  private ViewOrientation detectOrientation(){
+    Point size = m_parentComposite.getSize();
+    if(size.x > size.y) {
+      return ViewOrientation.HORIZONTAL;
+    }
+    return ViewOrientation.VERTICAL;   
+  }
+  
+  private void setEffectiveOrientation(ViewOrientation viewOrientation) {
+    if(m_effectiveOrientation==viewOrientation) return;
+    m_effectiveOrientation = viewOrientation;
+    boolean horizontal = viewOrientation == ViewOrientation.HORIZONTAL;
+    for (TestRunTab trt : m_tabsList) {
+      trt.setOrientation(horizontal);
+    }  
 
     GridLayout layout = (GridLayout) m_counterComposite.getLayout();
-//    layout.numColumns = 1;
+    
     setCounterColumns(layout);
-
     try {
       m_parentComposite.layout();
     }
     catch(Throwable cause) {
-      cause.printStackTrace();
+      TestNGPlugin.log(cause);      
     }
   }
 
@@ -338,7 +340,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
    * Stops the currently running test and shuts down the RemoteTestRunner.
    */
   private void stopTest() {
-    if(null != fTestRunnerClient) {
+    if(null != fTestRunnerClient && fTestRunnerClient.isRunning()) {      
       fTestRunnerClient.stopTest();
     }
     stopUpdateJobs();
@@ -735,9 +737,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     if (getWatchResultDirectory() != null) {
       updateResultThread(getWatchResults(), getWatchResultDirectory());
     }
-    m_parentComposite = parent;
-//    addResizeListener(parent);
-
+    m_parentComposite = parent;    
     GridLayout gridLayout = new GridLayout();
     gridLayout.marginWidth = 0;
     gridLayout.marginHeight = 0;
@@ -787,8 +787,18 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
 
     TestNGPlugin.getDefault().getPreferenceStore().addPropertyChangeListener(this);
 
-    getViewSite().getPage().addPartListener(fPartListener);
-
+    getViewSite().getPage().addPartListener(fPartListener);    
+   
+    m_parentComposite.addControlListener(new ControlAdapter() {
+      @Override
+      public void controlResized(ControlEvent e) {
+        if(m_desiredOrientation==ViewOrientation.AUTOMATIC){
+          ViewOrientation viewOrientation = detectOrientation();        
+          setEffectiveOrientation(viewOrientation);          
+        }
+      }
+    });
+    
     if (m_stateMemento != null) {
       restoreLayoutState(m_stateMemento);
     }
@@ -799,7 +809,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   public void saveState(IMemento memento) {
     int activePage = m_tabFolder.getSelectionIndex();
     memento.putInteger(TAG_PAGE, activePage);
-    memento.putInteger(TAG_ORIENTATION, fOrientation);
+    memento.putString(TAG_ORIENTATION, m_desiredOrientation.toString());
 
     for (TestRunTab tab : m_tabsList) {
       tab.saveState(memento);
@@ -812,10 +822,11 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     IMenuManager    viewMenu = actionBars.getMenuManager();
 
     fToggleOrientationActions = new ToggleOrientationAction[] {
-        new ToggleOrientationAction(this, VIEW_ORIENTATION_VERTICAL),
-        new ToggleOrientationAction(this, VIEW_ORIENTATION_HORIZONTAL),
-        new ToggleOrientationAction(this, VIEW_ORIENTATION_AUTOMATIC)
+        new ToggleOrientationAction(this, ViewOrientation.VERTICAL),
+        new ToggleOrientationAction(this, ViewOrientation.HORIZONTAL),
+        new ToggleOrientationAction(this, ViewOrientation.AUTOMATIC)
     };
+    fToggleOrientationActions[2].setChecked(true);
     fNextAction = new ShowNextFailureAction(this);
     fPrevAction = new ShowPreviousFailureAction(this);
     m_rerunAction= new RerunAction();
@@ -1006,7 +1017,6 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   }
 
   public void warnOfContentChange() {
-
     IWorkbenchSiteProgressService service = getProgressService();
     if(service != null) {
       service.warnOfContentChange();
@@ -1017,8 +1027,8 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     return false;
   }
 
-  private void setCounterColumns(GridLayout layout) {
-    if(fCurrentOrientation == VIEW_ORIENTATION_HORIZONTAL) {
+  private void setCounterColumns(GridLayout layout) {  
+    if(m_effectiveOrientation == ViewOrientation.HORIZONTAL) {
       layout.numColumns = 3;
     }
     else {
@@ -1028,34 +1038,35 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   
   private class ToggleOrientationAction extends Action {
 
-    private final int fActionOrientation;
+    private final ViewOrientation fActionOrientation;
 
-    public ToggleOrientationAction(TestRunnerViewPart v, int orientation) {
+    public ToggleOrientationAction(TestRunnerViewPart v, ViewOrientation orientation) {
       super("", AS_RADIO_BUTTON); //$NON-NLS-1$
-      if(orientation == TestRunnerViewPart.VIEW_ORIENTATION_HORIZONTAL) {
+      switch (orientation) {
+      case HORIZONTAL:
         setText(ResourceUtil.getString("TestRunnerViewPart.toggle.horizontal.label")); //$NON-NLS-1$
         setImageDescriptor(TestNGPlugin.getImageDescriptor("elcl16/th_horizontal.gif")); //$NON-NLS-1$
-      }
-      else if(orientation == TestRunnerViewPart.VIEW_ORIENTATION_VERTICAL) {
+        break;
+      case VERTICAL:
         setText(ResourceUtil.getString("TestRunnerViewPart.toggle.vertical.label")); //$NON-NLS-1$
         setImageDescriptor(TestNGPlugin.getImageDescriptor("elcl16/th_vertical.gif")); //$NON-NLS-1$
-      }
-      else if(orientation == TestRunnerViewPart.VIEW_ORIENTATION_AUTOMATIC) {
+        break;
+      default:
         setText(ResourceUtil.getString("TestRunnerViewPart.toggle.automatic.label")); //$NON-NLS-1$
         setImageDescriptor(TestNGPlugin.getImageDescriptor("elcl16/th_automatic.gif")); //$NON-NLS-1$
-      }
+        break;
+      }      
       fActionOrientation = orientation;
     }
 
-    public int getOrientation() {
+    public ViewOrientation getOrientation() {
       return fActionOrientation;
     }
 
     @Override
     public void run() {
       if(isChecked()) {
-        fOrientation = fActionOrientation;
-        computeOrientation();
+        setDesiredOrientation(fActionOrientation);       
       }
     }
   }
@@ -1179,15 +1190,15 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     public void partOpened(IWorkbenchPartReference ref) {
     }
 
-    public void partVisible(IWorkbenchPartReference ref) {
+    public void partVisible(IWorkbenchPartReference ref) {      
       if(getSite().getId().equals(ref.getId())) {
-        m_partIsVisible = true;
+        m_partIsVisible = true;         
       }
     }
 
-    public void partHidden(IWorkbenchPartReference ref) {
+    public void partHidden(IWorkbenchPartReference ref) {      
       if(getSite().getId().equals(ref.getId())) {
-        m_partIsVisible = false;
+        m_partIsVisible = false;        
       }
     }
   };
