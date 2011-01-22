@@ -40,6 +40,7 @@ import org.eclipse.ui.dialogs.SelectionDialog;
 import org.testng.eclipse.TestNGPlugin;
 import org.testng.eclipse.util.ResourceUtil;
 import org.testng.eclipse.util.SWTUtil;
+import org.testng.eclipse.util.TestNGStatus;
 import org.testng.eclipse.util.Utils;
 
 /**

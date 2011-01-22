@@ -7,7 +7,6 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.debug.internal.ui.actions.StatusInfo;
 import org.eclipse.jdt.internal.ui.wizards.TypedViewerFilter;
 import org.eclipse.jdt.internal.ui.wizards.buildpaths.FolderSelectionDialog;
 import org.eclipse.jface.preference.PreferencePage;
@@ -38,6 +37,7 @@ import org.testng.eclipse.ui.util.Utils.Widgets;
 import org.testng.eclipse.util.JDTUtil;
 import org.testng.eclipse.util.PreferenceStoreUtil;
 import org.testng.eclipse.util.SWTUtil;
+import org.testng.eclipse.util.TestNGStatus;
 import org.testng.eclipse.util.TestSearchEngine;
 import org.testng.reporters.XMLReporter;
 
@@ -51,7 +51,7 @@ import java.util.Set;
  * @author Cedric Beust <cedric@beust.com>
  */
 public class TestNGPropertyPage extends PropertyPage {
-  private static final IStatus ERROR = new StatusInfo(IStatus.ERROR, "");
+  private static final IStatus ERROR = TestNGStatus.createError("");
   private Text m_outputdir;
   private Button m_absolutePath;
   private Button m_disabledDefaultListeners;
@@ -232,18 +232,18 @@ public class TestNGPropertyPage extends PropertyPage {
     ISelectionStatusValidator validator = new ISelectionStatusValidator() {
         public IStatus validate(Object[] selection) {
           if ((null == selection) || (selection.length == 0)) {
-            return new StatusInfo(IStatus.ERROR, "empty selection is not allowed");
+            return TestNGStatus.createError("empty selection is not allowed");
           }
 
           if (selection.length > 1) {
-            return new StatusInfo(IStatus.ERROR, "multiple selection is not allowed");
+            return TestNGStatus.createError("multiple selection is not allowed");
           }
 
           if (IFolder.class.isInstance(selection[0]) || IProject.class.isInstance(selection[0])) {
-            return new StatusInfo();
+            return TestNGStatus.createOK();
           }
 
-          return new StatusInfo(IStatus.ERROR, "not accepted type");
+          return TestNGStatus.createError( "not accepted type");
         }
       };
 

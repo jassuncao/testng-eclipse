@@ -33,6 +33,7 @@ import org.testng.eclipse.TestNGPlugin;
 import org.testng.eclipse.ui.util.Utils;
 import org.testng.eclipse.util.ResourceUtil;
 import org.testng.eclipse.util.SuiteGenerator;
+import org.testng.eclipse.util.TestNGStatus;
 
 /**
  * This is a sample new wizard. Its role is to create a new file 

@@ -1,4 +1,4 @@
-package org.testng.eclipse.wizards;
+package org.testng.eclipse.util;
 
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
