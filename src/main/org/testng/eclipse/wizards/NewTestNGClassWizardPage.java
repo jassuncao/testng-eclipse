@@ -328,7 +328,21 @@ public class NewTestNGClassWizardPage extends NewTypeWizardPage  {
     initContainerPage(element);
     initTypePage(element);
  // put default class to test
-    if (element != null) {
+    if (element != null) {      
+      
+      try {
+        // Try to find maven's test folder. 
+        // Only do this if the user didn't select a package or a src folder
+        int kind = element.getElementType();
+        if(kind!=IJavaElement.PACKAGE_FRAGMENT && kind != IJavaElement.PACKAGE_FRAGMENT_ROOT){          
+          IPackageFragmentRoot mavenTestSrcFolder = findMavenTestSrcFolder(element);
+          if(mavenTestSrcFolder!=null)
+            setPackageFragmentRoot(mavenTestSrcFolder,true);
+        }
+      } catch (JavaModelException e1) {
+        TestNGPlugin.log(e1);
+      }
+      
       IType classToTest= null;
       // evaluate the enclosing type
       IType typeInCompUnit= (IType) element.getAncestor(IJavaElement.TYPE);
@@ -359,6 +373,33 @@ public class NewTestNGClassWizardPage extends NewTypeWizardPage  {
       }
     }    
     updateStatus(getStatusList());
+  }
+  
+  /**
+   * Performs a simple attempt to locate the folder test/java present in maven projects
+   * @param elem
+   * @return the test/java folder or null if not found
+   * @throws JavaModelException
+   */
+  private IPackageFragmentRoot findMavenTestSrcFolder(IJavaElement elem) throws JavaModelException{
+    IJavaProject jproject= elem.getJavaProject();   
+    if (jproject != null) {       
+        if (jproject.exists()) {
+          IPackageFragmentRoot[] roots= jproject.getPackageFragmentRoots();
+          for (int i= 0; i < roots.length; i++) {
+            if (roots[i].getKind() == IPackageFragmentRoot.K_SOURCE) {
+              String path = roots[i].getPath().makeRelative().toString();
+              if(path.endsWith("test/java"))
+                return roots[i];
+            }
+          }
+        }
+      IPackageFragmentRoot root = jproject.getPackageFragmentRoot(jproject.getResource());
+      String path = root.getPath().makeRelative().toString();
+      if(path.endsWith("test/java"))
+        return root;      
+    }
+    return null;
   }
   
   protected IStatus[] getStatusList() {
