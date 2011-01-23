@@ -91,8 +91,8 @@ public class ScoreBoard {
   
   public void testFinished() {
     m_testCount++;
-    if(m_testCount>m_methodTotalCount)
-      m_methodTotalCount =m_testCount; 
+    if(m_testCount>m_testsTotalCount)
+      m_testsTotalCount =m_testCount; 
   }
 
   public boolean isFinished() {
@@ -107,24 +107,29 @@ public class ScoreBoard {
     m_methodTotalCount +=testMethodCount;    
   }
 
+  private void incMethodCount(){
+    m_methodCount++;
+    if(m_methodCount>m_methodTotalCount)
+      m_methodTotalCount = m_methodCount;
+  }
   public void testSuccess() {
     m_passedCount++;
-    m_methodCount++;
+    incMethodCount();
   }
 
   public void testFailure() {
     m_failedCount++;
-    m_methodCount++;
+    incMethodCount();
   }
 
   public void testSkipped() {
     m_skippedCount++;
-    m_methodCount++;    
+    incMethodCount();
   }
 
   public void testPartialFailure() {
     m_successPercentageFailed++;
-    m_methodCount++;
+    incMethodCount();
   }
 
   public int getTestCount() {
