@@ -92,7 +92,7 @@ public class ProgressBar extends Canvas {
   }
 
   private int calcBarWidth(Rectangle rect){
-    int methodsTotalCount = scoreBoard.getTotalMethodCount();
+    float methodsTotalCount = scoreBoard.getTotalMethodCount();
     if(methodsTotalCount>0){
       /*
       //float progress;
