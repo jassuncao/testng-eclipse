@@ -11,6 +11,8 @@
 package org.testng.eclipse.ui;
 
 
+import java.text.MessageFormat;
+
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ControlAdapter;
@@ -28,40 +30,27 @@ import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 
-import org.testng.ITestResult;
-
 /**
  * A progress bar with a red/green indication for success or failure.
  */
 public class ProgressBar extends Canvas {
   private static final int DEFAULT_WIDTH = 160;
   private static final int DEFAULT_HEIGHT = 16;
+  
+  private final Color m_oKColor;
+  private final Color m_failureColor;
+  private final Color m_stoppedColor;
+  private final Color m_skippedColor;
+  private final Color m_messageColor;
+  
+  private final ScoreBoard scoreBoard;
 
-  private int m_currentTickCount = 0;
-  private int m_maxTickCount = 0;
-  private int m_colorBarWidth = 0;
-  private Color m_oKColor;
-  private Color m_failureColor;
-  private Color m_stoppedColor;
-  private Color m_skippedColor;
-  private Color m_messageColor;
-  // Defined in ITestResult
-  private int m_error;
-  private boolean m_stopped = false;
-
-  private int m_totalTestsCounter;
-  private int m_testCounter;
-  private int m_totalMethodsCounter;
-  private int m_methodsCounter;
-  private String m_currentMessage = "Tests: 0/0  Methods: 0/0";
-  private String m_timeMessage= "";
-
-  public ProgressBar(Composite parent) {
+  public ProgressBar(Composite parent, ScoreBoard scoreBoard) {
     super(parent, SWT.NONE);
+    this.scoreBoard = scoreBoard;
 
     addControlListener(new ControlAdapter() {
       public void controlResized(ControlEvent e) {
-        m_colorBarWidth = scale(m_currentTickCount);
         redraw();
       }
     });
@@ -75,6 +64,7 @@ public class ProgressBar extends Canvas {
         m_failureColor.dispose();
         m_oKColor.dispose();
         m_stoppedColor.dispose();
+        m_skippedColor.dispose();
       }
     });
 
@@ -86,87 +76,56 @@ public class ProgressBar extends Canvas {
     m_messageColor = display.getSystemColor(SWT.COLOR_BLACK);
   }
 
-  public void setMaximum(int max, int totalMethods) {
-//    ppp("setMaximum:[" + fMaxTickCount + "," + fColorBarWidth + "," + max + "," + totalMethods + "]");
-    m_maxTickCount = max;
-
-    m_colorBarWidth = scale(m_currentTickCount);
-//    ppp("setMaximum:rescaled:" + fColorBarWidth);
-
-    m_totalMethodsCounter = totalMethods;
-    paintStep(1, m_colorBarWidth);
-  }
-
-  public void reset(int testcounter) {
-    m_error = ITestResult.FAILURE;
-    m_stopped = false;
-    m_currentTickCount = 0;
-    m_colorBarWidth = 0;
-    m_maxTickCount = 0;
-    m_totalTestsCounter = testcounter;
-    m_testCounter = 0;
-    m_totalMethodsCounter = 0;
-    m_methodsCounter = 0;
-    m_timeMessage= "";
-    m_currentMessage = getCurrentMessage();
-
-    redraw();
-//    ppp("reset");
-  }
-
   private String getCurrentMessage() {
-    return "Tests: " + m_testCounter + "/" + m_totalTestsCounter + "  Methods: " + m_methodsCounter
-      + "/" + m_totalMethodsCounter + m_timeMessage;
+    String timeMessage = "";
+    if(scoreBoard.isFinished()/* && scoreBoard.isStopped()*/){
+      long elapsedTime = scoreBoard.getElapsedTime();
+      timeMessage = "("+elapsedTime + " ms)";
+    }
+    return MessageFormat.format("Tests: {0}/{1} Methods: {2}/{3} {4}", new Object[]{
+        scoreBoard.getTestCount(),
+        scoreBoard.getTestsTotalCount(),
+        scoreBoard.getMethodsCount(),
+        scoreBoard.getTotalMethodCount(),
+        timeMessage
+    });   
   }
 
-  private void paintStep(int startX, int endX) {
-    GC gc = new GC(this);
-    setStatusColor(gc);
-    Rectangle rect = getClientArea();
-    startX = Math.max(1, startX);
-    gc.fillRectangle(startX, 1, endX - startX, rect.height - 2);
-    String string = getCurrentMessage();
-    m_currentMessage = string;
-    gc.setFont(JFaceResources.getDefaultFont());
-    FontMetrics fontMetrics = gc.getFontMetrics();
-    int stringWidth = fontMetrics.getAverageCharWidth() * string.length();
-    int stringHeight = fontMetrics.getHeight();
-    gc.setForeground(m_messageColor);
-    gc.drawString(string, (rect.width - stringWidth) / 2, (rect.height - stringHeight) / 2, true);
-
-    gc.dispose();
+  private int calcBarWidth(Rectangle rect){
+    int methodsTotalCount = scoreBoard.getTotalMethodCount();
+    if(methodsTotalCount>0){
+      /*
+      //float progress;
+      //float totalWork = methodsTotalCount;//*scoreBoard.getTestsTotalCount()/scoreBoard.getTestsTotalCount();
+      progress = scoreBoard.getMethodsCount()/methodsTotalCount;
+      /*
+      if(methodsTotalCount>0){
+        totalWork = methodsTotalCount*scoreBoard.getTestsTotalCount()/scoreBoard.getTestsTotalCount();
+        progress = (scoreBoard.getMethodsCount()*scoreBoard.getTestCount())/totalWork;
+      }
+      else{
+        totalWork = scoreBoard.getTestsTotalCount();
+        progress = scoreBoard.getTestCount()/totalWork;
+      } */  
+      float progress = scoreBoard.getMethodsCount()/methodsTotalCount;
+      return Math.round(progress*(rect.width - 2));
+    }
+    return 0;
   }
 
   private void setStatusColor(GC gc) {
-    if (m_stopped) {
-      gc.setBackground(m_stoppedColor);
-    }
-    else if (m_error == ITestResult.FAILURE || m_error == ITestResult.SUCCESS_PERCENTAGE_FAILURE) {
+    if(scoreBoard.hasErrors()){
       gc.setBackground(m_failureColor);
     }
-    else if (m_error == ITestResult.SKIP) {
+    else if(scoreBoard.getSkippedCount()>0){
       gc.setBackground(m_skippedColor);
+    }
+    else if(scoreBoard.isStopped()){
+      gc.setBackground(m_stoppedColor);
     }
     else {
       gc.setBackground(m_oKColor);
     }
-  }
-
-  public void stopped() {
-    m_stopped = true;
-    redraw();
-  }
-
-  private int scale(int value) {
-    if (m_maxTickCount > 0) {
-      Rectangle r = getClientArea();
-//      ppp("scale:[" + r + "][" + value + "][" + fMaxTickCount + "]");
-      if (r.width != 0) {
-        return Math.max(0, value * (r.width - 2) / m_maxTickCount);
-      }
-    }
-
-    return value;
   }
 
   private void drawBevelRect(GC gc, int x, int y, int w, int h, Color topleft, Color bottomright) {
@@ -180,9 +139,12 @@ public class ProgressBar extends Canvas {
   }
 
   private void paint(PaintEvent event) {
-    GC gc = event.gc;
+    GC gc = event.gc;   
+    drawProgress(gc);    
+  }
+  
+  private void drawProgress(GC gc){
     Display disp = getDisplay();
-
     Rectangle rect = getClientArea();
     gc.fillRectangle(rect);
     drawBevelRect(gc,
@@ -192,23 +154,17 @@ public class ProgressBar extends Canvas {
                   rect.height - 1,
                   disp.getSystemColor(SWT.COLOR_WIDGET_NORMAL_SHADOW),
                   disp.getSystemColor(SWT.COLOR_WIDGET_HIGHLIGHT_SHADOW));
-
     setStatusColor(gc);
-    m_colorBarWidth = Math.min(rect.width - 2, m_colorBarWidth);
-    gc.fillRectangle(1, 1, m_colorBarWidth, rect.height - 2);
-
+    int w = Math.min(rect.width - 2, calcBarWidth(rect));
+    gc.fillRectangle(1, 1, w, rect.height - 2);    
+    String string = getCurrentMessage();
     gc.setFont(JFaceResources.getDefaultFont());
     FontMetrics fontMetrics = gc.getFontMetrics();
-    final String msg= getCurrentMessage();
-    int stringWidth = fontMetrics.getAverageCharWidth() * msg.length();
+    int stringWidth = fontMetrics.getAverageCharWidth() * string.length();
     int stringHeight = fontMetrics.getHeight();
     gc.setForeground(m_messageColor);
-    gc.drawString(msg,
-                  (rect.width - stringWidth) / 2,
-                  (rect.height - stringHeight) / 2,
-                  true);
-  }
-
+    gc.drawString(string, (rect.width - stringWidth) / 2, (rect.height - stringHeight) / 2, true);
+  }  
   public Point computeSize(int wHint, int hHint, boolean changed) {
     checkWidget();
     Point size = new Point(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -218,39 +174,12 @@ public class ProgressBar extends Canvas {
     if (hHint != SWT.DEFAULT) {
       size.y = hHint;
     }
-
     return size;
   }
 
-  public void step(int failures) {
-    m_currentTickCount++;
-    m_methodsCounter++;
-    int x = m_colorBarWidth;
-
-    m_colorBarWidth = scale(m_currentTickCount);
-    if (m_error == ITestResult.SUCCESS && (failures > 0)) {
-      m_error = ITestResult.FAILURE;
-      x = 1;
-    }
-    if (m_currentTickCount == m_maxTickCount) {
-      m_colorBarWidth = getClientArea().width - 1;
-    }
-    paintStep(x, m_colorBarWidth);
-  }
-
-  public void stepTests() {
-    m_testCounter++;
-    m_currentMessage = getCurrentMessage();
-    redraw();
-  }
-
-  public void refresh(int status, String msg) {
-    m_error = status;
-    m_timeMessage= msg;
-    redraw();
-  }
-
-  private static void ppp(Object msg) {
-//    System.out.println("[JUP]: " + msg);
+  public void refreshProgress() {
+    GC gc = new GC(this);
+    drawProgress(gc);      
+    gc.dispose();
   }
 }

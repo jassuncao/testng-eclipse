@@ -46,16 +46,19 @@ public class CounterPanel extends Composite {
   protected Text m_failedText;
   protected CLabel m_failedLabel;
 //  protected Text m_successPercentageFailedText;
-
+/*
   protected int  m_suiteTotalCount;
   protected int  m_suiteCount = 0;
   protected int  m_testTotalCount;
   protected int  m_testCount = 0;
   protected int  m_methodTotalCount;
   protected int  m_methodCount = 0;
+  */
+  private final ScoreBoard scoreBoard;
 
-  public CounterPanel(Composite parent) {
+  public CounterPanel(Composite parent, ScoreBoard scoreBoard) {
     super(parent, SWT.WRAP);
+    this.scoreBoard = scoreBoard;
 
 //    FillLayout fl = new FillLayout(SWT.VERTICAL);
 //    fl.marginWidth = 0;
@@ -189,28 +192,8 @@ public class CounterPanel extends Composite {
 //    return value;
     return label;
   }
-
-  /**
-   * FIXME: too much redraw().
-   */
-  public void reset() {
-    ppp("reset()");
-    m_suiteTotalCount = 0;
-    m_suiteCount = 0;
-    setSuiteTotalCount(0);
-    m_testTotalCount = 0;
-    m_testCount = 0;
-    setTestTotalCount(0);
-    m_methodTotalCount = 0;
-    m_methodCount = 0;
-    setMethodTotalCount(0);
-    setPassedCount(0);
-    setFailedCount(0);
-    setSkippedCount(0);
-//    setSuccessPercentageFailedCount(0);
-    redraw();
-  }
-
+ 
+/*
   public void setSuiteTotalCount(int no) {
 //    m_suiteTotalCount = no;
 //    m_suiteCountText.setText(MessageFormat.format(TOTAL_MESSAGE_FORMAT,
@@ -298,13 +281,21 @@ public class CounterPanel extends Composite {
     m_skippedLabel.redraw();
   }
 
-  /*public void setSuccessPercentageFailedCount(int no) {
+  public void setSuccessPercentageFailedCount(int no) {
     m_successPercentageFailedText.setText(String.valueOf(no));
     m_successPercentageFailedText.redraw();
     redraw();
-  }*/
+  }
+*/
 
   private static void ppp(Object msg) {
 //    System.out.println("[CounterPanel]:- " + msg);
+  }
+
+  public void refreshCounters() {
+    m_skippedLabel.setText("Skipped: " + scoreBoard.getSkippedCount());
+    m_failedLabel.setText("Failed: " + scoreBoard.getFailedCount());
+    m_passedLabel.setText("Passed: " + scoreBoard.getPassedCount());
+    this.redraw();        
   }
 }

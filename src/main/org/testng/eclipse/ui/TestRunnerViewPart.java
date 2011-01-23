@@ -175,9 +175,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   private Action m_rerunFailedAction;
   private Action m_openReportAction;
   private boolean m_hasFailures;
-  
-  private long m_startTime;
-  private long m_stopTime;
+   
   
   /**
    * Whether the output scrolls and reveals tests as they are executed.
@@ -193,7 +191,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   private boolean m_isDisposed = false;
   
   // JOBS
-  private UpdateUIJob m_updateUIJob;
+  //private UpdateUIJob m_updateUIJob;
   /**
    * A Job that runs as long as a test run is running. 
    * It is used to get the progress feedback for running jobs in the view.
@@ -222,17 +220,10 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   static final String TAG_PAGE = "page"; //$NON-NLS-1$
   static final String TAG_ORIENTATION = "orientation"; //$NON-NLS-1$
 
-  //~ counters
-  protected int m_suitesTotalCount;
-  protected int m_testsTotalCount;
-  protected int m_methodTotalCount;
-  protected volatile int m_suiteCount;
-  protected volatile int m_testCount;
-  protected volatile int m_methodCount;
-  protected volatile int m_passedCount;
-  protected volatile int m_failedCount;
-  protected volatile int m_skippedCount;
-  protected volatile int m_successPercentageFailed;
+  
+  private final ScoreBoard scoreBoard = new ScoreBoard();
+  //~ counters    
+  
 
   /**
    * The summary tab.
@@ -251,6 +242,8 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
 
   /** The thread that watches the testng-results.xml file */
   private WatchResult m_watchThread;
+
+  private ToolItem m_stopButton;
 
   @Override
   public void init(IViewSite site, IMemento memento) throws PartInitException {
@@ -366,10 +359,12 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   }
 
   private void stopUpdateJobs() {
+    /*
     if(m_updateUIJob != null) {
       m_updateUIJob.stop();
       m_updateUIJob = null;
     }
+    */
     if((m_isRunningJob != null) && (m_runLock != null)) {
       m_runLock.release();
       m_isRunningJob = null;
@@ -381,13 +376,11 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   }
 
   private boolean hasErrors() {
-    return m_failedCount > 0 || m_successPercentageFailed > 0;
+    return scoreBoard.hasErrors();    
   }
 
   private int getStatus() {
-    if (hasErrors()) return ITestResult.FAILURE;
-    else if (m_skippedCount > 0) return ITestResult.SKIP;
-    else return ITestResult.SUCCESS;
+    return scoreBoard.getStatus();
   }
 
   public void startTestRunListening(IJavaProject project, 
@@ -512,19 +505,6 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     if(!isDisposed()) {
       getDisplay().syncExec(r);
     }
-  }
-
-  private void refreshCounters() {
-    m_counterPanel.setMethodCount(m_methodCount);
-    m_counterPanel.setPassedCount(m_passedCount);
-    m_counterPanel.setFailedCount(m_failedCount);
-    m_counterPanel.setSkippedCount(m_skippedCount);
-    String msg= "";
-    if(m_startTime != 0L && m_stopTime != 0L) {
-      msg= " (" + (m_stopTime - m_startTime) + " ms)";
-    }
-    
-    fProgressBar.refresh(getStatus(), msg);
   }
 
   protected void postShowTestResultsView() {
@@ -681,31 +661,17 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     }
   }
 
-  private void reset(final int suiteCount, final int testCount) {
-    m_suitesTotalCount = suiteCount;
-    m_testsTotalCount = testCount;
-    m_methodTotalCount = 0;
-    m_suiteCount = 0;
-    m_testCount = 0;
-    m_methodCount = 0;
-    m_passedCount = 0;
-    m_failedCount = 0;
-    m_skippedCount = 0;
-    m_successPercentageFailed = 0;
-    m_startTime= 0L;
-    m_stopTime= 0L;
-    
+  private void reset(final int suiteCount, final int testCount) { 
+    scoreBoard.reset();
+    scoreBoard.setSuitesTotalCount(suiteCount);
+    scoreBoard.setTestsTotalCount(testCount);
+    queueProgressRefresh();
     postSyncRunnable(new Runnable() {
       public void run() {
         if(isDisposed()) {
           return;
         }
-        
-        m_counterPanel.reset();
-//        m_failureTraceComponent.clear();
-        fProgressBar.reset(testCount);
-        clearStatus();
-        
+        clearStatus();        
         for (TestRunTab tab : m_tabsList) {
           tab.aboutToStart();
         }
@@ -891,7 +857,6 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     Display display= parent.getDisplay();
     fFailureColor= new Color(display, 159, 63, 63);
     fOKColor= new Color(display, 95, 191, 95);
-
     {
       //
       // Progress bar
@@ -903,7 +868,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
       m_counterComposite.setLayout(layout);
       setCounterColumns(layout);
 
-      fProgressBar = new ProgressBar(m_counterComposite);
+      fProgressBar = new ProgressBar(m_counterComposite, scoreBoard);
       fProgressBar.setLayoutData(
           new GridData(GridData.GRAB_HORIZONTAL| GridData.HORIZONTAL_ALIGN_FILL));
 
@@ -911,17 +876,19 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
       // Stop button (a toolbar, actually)
       //
       ToolBar toolBar = new ToolBar(m_counterComposite, SWT.FLAT);
-      ToolItem stopButton = new ToolItem(toolBar, SWT.PUSH);
-      stopButton.setImage(Images.getImage(Images.IMG_STOP));
-      stopButton.setToolTipText("Stop the current test run");
-      stopButton.addSelectionListener(new SelectionListener() {
+      m_stopButton = new ToolItem(toolBar, SWT.PUSH);
+      m_stopButton.setImage(Images.getImage(Images.IMG_STOP));
+      m_stopButton.setToolTipText("Stop the current test run");
+      m_stopButton.addSelectionListener(new SelectionListener() {
         public void widgetSelected(SelectionEvent e) {
+          m_stopButton.setEnabled(false);
           stopTest();
         }
 
         public void widgetDefaultSelected(SelectionEvent e) {
         }
       });
+      m_stopButton.setEnabled(false);
     }
 
     {
@@ -953,7 +920,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
       //
       // Counter panel
       //
-      m_counterPanel = new CounterPanel(line2);
+      m_counterPanel = new CounterPanel(line2, scoreBoard);
     }
   }
 
@@ -1074,6 +1041,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   /**
    * Background job running in UI thread for updating components info. 
    */
+  /*
   class UpdateUIJob extends UIJob {
     private volatile boolean fRunning = true;
 
@@ -1103,7 +1071,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
       return fRunning;
     }
   }
-
+*/
   class IsRunningJob extends Job {
     public IsRunningJob(String name) {
       super(name);
@@ -1151,18 +1119,12 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   }
 
   private void postTestResult(final RunInfo runInfo, final int progressStep) {
+    queueProgressRefresh();
     postSyncRunnable(new Runnable() {
       public void run() {
         if(isDisposed()) {
           return;
         }
-//        for(int i = 0; i < m_tabsList.size(); i++) {
-//          ((TestRunTab) m_tabsList.elementAt(i)).newTreeEntry(runInfo);
-//        }
-
-        fProgressBar.step(progressStep);
-//        updateProgressBar(m_progressBar.getSelection() + 1, (progressStep == 0));
-
         for (TestRunTab tab : m_tabsList) {
           tab.updateTestResult(runInfo);
         }
@@ -1170,7 +1132,7 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     });
   }
 
-  ///~ [CURRENT WORK] ~///
+  ///~ [CURRENT WORK] ~/// 
   private IPartListener2 fPartListener = new IPartListener2() {
     public void partActivated(IWorkbenchPartReference ref) {
     }
@@ -1315,15 +1277,23 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     int testCount = genericMessage.getTestCount();
     reset(suiteCount, testCount);
     stopUpdateJobs();
-    m_updateUIJob= new UpdateUIJob("Update TestNG"); //$NON-NLS-1$ 
+    //m_updateUIJob= new UpdateUIJob("Update TestNG"); //$NON-NLS-1$ 
     m_isRunningJob = new IsRunningJob("TestNG run wrapper job"); //$NON-NLS-1$
     m_runLock = Platform.getJobManager().newLock();
     // acquire lock while a test run is running the lock is released when the test run terminates
     // the wrapper job will wait on this lock.
     m_runLock.acquire();
     getProgressService().schedule(m_isRunningJob);
-    m_updateUIJob.schedule(REFRESH_INTERVAL);
-    m_startTime= System.currentTimeMillis();
+    //m_updateUIJob.schedule(REFRESH_INTERVAL);
+    scoreBoard.startTimer(); 
+    postSyncRunnable(new Runnable() {
+      public void run() {
+        if(isDisposed()) {
+          return;
+        }
+        m_stopButton.setEnabled(true);
+      }
+    });
   }
 
 //  public void onStart(SuiteMessage suiteMessage) {
@@ -1337,8 +1307,8 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     // Do this again in onFinish() in case the set of excluded methods changed since
     // onStart()
     m_summaryTab.setExcludedMethodsModel(suiteMessage);
-
-    m_suiteCount++;
+    scoreBoard.suiteFinished();
+   
     
 //    postSyncRunnable(new Runnable() {
 //      public void run() {
@@ -1351,32 +1321,33 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
 //      }
 //    });
 
-    if(m_suitesTotalCount == m_suiteCount) {
+    if(scoreBoard.isFinished()){
       fNextAction.setEnabled(hasErrors());
       fPrevAction.setEnabled(hasErrors());
       m_rerunFailedAction.setEnabled(hasErrors());
       m_hasFailures= true;
       postShowTestResultsView();
       stopTest();
-      m_stopTime= System.currentTimeMillis();
+      scoreBoard.stopTimer();
+      queueProgressRefresh();
       postSyncRunnable(new Runnable() {
         public void run() {
           if(isDisposed()) {
             return;
           }
-          refreshCounters();
-//          m_progressBar.redraw();
+          m_stopButton.setEnabled(false);
         }
       });
-      
     }
   }
 
   public void onStart(TestMessage tm) {
+    scoreBoard.increaseMethodTotalCount(tm.getTestMethodCount());
+    /*
     RunInfo ri= new RunInfo(tm.getSuiteName(), tm.getTestName());
     ri.m_methodCount= tm.getTestMethodCount();
     m_methodTotalCount += tm.getTestMethodCount();
-    
+    */
 //    postNewTreeEntry(ri);
     
     postSyncRunnable(new Runnable() {
@@ -1384,24 +1355,27 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
         if(isDisposed()) {
           return;
         }
-
-        updateProgressBar();
+        fProgressBar.refreshProgress();
+//       updateProgressBar();
 //        m_progressBar.setMaximum(newMaxBar);
 //        System.out.println("se maresteeee");
       }
     });
   }
-
+/*
   private void updateProgressBar() {
     postSyncRunnable(new Runnable() {
       public void run() {
-        int newMaxBar = (m_methodTotalCount * m_testsTotalCount) / (m_testCount + 1);
-        fProgressBar.setMaximum(newMaxBar, m_methodTotalCount);
+        int newMaxBar = (m_methodTotalCount * m_testsTotalCount);// / (m_testCount + 1);
+   //     fProgressBar.setMaximum(newMaxBar, m_methodTotalCount);
       }
     });
   }
-
+*/
   public void onFinish(TestMessage tm) {
+    scoreBoard.testFinished();
+    queueProgressRefresh();
+    /*
     m_testCount++;
 
     // The method count is more accurate than m_methodTotalCount since it also takes
@@ -1413,17 +1387,33 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
     updateProgressBar();
 
     final String entryId = new RunInfo(tm.getSuiteName(), tm.getTestName()).getId();
-    
+    */
+    /*
     postSyncRunnable(new Runnable() {
       public void run() {
         if(isDisposed()) {
           return;
         }
+        fProgressBar.refreshProgress();
+        //fProgressBar.stepTests();
 //        for(int i = 0; i < m_tabsList.size(); i++) {
 //          ((TestRunTab) m_tabsList.elementAt(i)).updateEntry(entryId);
 //        }
         
-        fProgressBar.stepTests();
+        
+      }
+    });
+    */
+  }
+  
+  private void queueProgressRefresh(){
+    postSyncRunnable(new Runnable() {
+      public void run() {
+        if(isDisposed()) {
+          return;
+        }
+        fProgressBar.redraw();
+        m_counterPanel.redraw();
       }
     });
   }
@@ -1449,15 +1439,12 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   }
   
   public void onTestSuccess(TestResultMessage trm) {
-    m_passedCount++;
-    m_methodCount++;
-    
+    scoreBoard.testSuccess();        
     postTestResult(createRunInfo(trm, null, ITestResult.SUCCESS), 0 /*no error*/);
   }
 
   public void onTestFailure(TestResultMessage trm) {
-    m_failedCount++;
-    m_methodCount++;
+    scoreBoard.testFailure();
     String desc = trm.getTestDescription();
     if (desc != null) {
     	getTestDescriptions().add (desc);
@@ -1467,16 +1454,14 @@ implements IPropertyChangeListener, IRemoteSuiteListener, IRemoteTestListener {
   }
 
   public void onTestSkipped(TestResultMessage trm) {
-    m_skippedCount++;
-    m_methodCount++;
+    scoreBoard.testSkipped();    
 //    System.out.println("[INFO:onTestSkipped]:" + trm.getMessageAsString());
     postTestResult(createRunInfo(trm, trm.getStackTrace(), ITestResult.SKIP), 1 /*error*/
     );
   }
 
   public void onTestFailedButWithinSuccessPercentage(TestResultMessage trm) {
-    m_successPercentageFailed++;
-    m_methodCount++;
+    scoreBoard.testPartialFailure();
     
     postTestResult(createRunInfo(trm, trm.getStackTrace(), ITestResult.SUCCESS_PERCENTAGE_FAILURE),
                    1 /*error*/
