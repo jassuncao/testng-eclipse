@@ -1,5 +1,6 @@
 package org.testng.eclipse.wizards;
 
+import org.eclipse.core.resources.IContainer;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -19,6 +20,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.Wizard;
@@ -36,14 +38,11 @@ import org.testng.eclipse.util.SuiteGenerator;
 import org.testng.eclipse.util.TestNGStatus;
 
 /**
- * This is a sample new wizard. Its role is to create a new file 
- * resource in the provided container. If the container resource
- * (a folder or a project) is selected in the workspace 
- * when the wizard is opened, it will accept it as the target
- * container. The wizard creates one file with the extension
- * "java". If a sample multi-page editor (also available
- * as a template) is registered for the same extension, it will
- * be able to open it.
+ * The wizard that creates a new TestNG class. This wizard looks at the current
+ * selected class and prefills some of its pages based on the information found
+ * in these classes.
+ *
+ * @author Cedric Beust <cedric@beust.com>
  */
 public class NewTestNGClassWizard extends Wizard implements INewWizard {
 	private NewTestNGClassWizardPage m_page;
@@ -167,16 +166,12 @@ public class NewTestNGClassWizard extends Wizard implements INewWizard {
 	    InputStream contentStream, IProgressMonitor monitor) throws CoreException {
     monitor.beginTask("Creating " + fileName, 2);
     IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
-    IResource resource = root.findMember(new Path(containerName));
-    if (!resource.exists() || !(resource instanceof IContainer)) {
-      throwCoreException("Container \"" + containerName + "\" does not exist.");
-    }
-    IContainer container = (IContainer) resource;
     String fullPath = fileName;
     if (packageName != null && ! "".equals(packageName)) {
       fullPath = packageName.replace(".", File.separator) + File.separatorChar + fileName;
     }
-    final IFile result = container.getFile(new Path(fullPath));
+    Path absolutePath = new Path(containerName + File.separatorChar + fullPath);
+    final IFile result = root.getFile(absolutePath);
     try {
       if (result.exists()) {
         boolean overwrite = MessageDialog.openConfirm(getShell(),
