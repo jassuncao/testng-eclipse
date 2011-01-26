@@ -132,25 +132,6 @@ public class QuickRunAction extends Action {
   }
 
   private void launchSuite() {
-    ILaunchConfiguration config = m_previousRun.getLaunchConfiguration();        
-    try {
-      List list = config.getAttribute(TestNGLaunchConfigurationConstants.SUITE_TEST_LIST, Collections.EMPTY_LIST);
-      if(list == null || list.isEmpty()) return;
-      
-      //Warning!! Lazy code to get the IFile corresponding to a OS specific filename
-      String suiteOSFname = list.get(0).toString();      
-      String projectOSPath = m_javaProject.getProject().getLocation().toOSString();
-      //Discard the portion with the path of the project
-      String relativeFname = suiteOSFname.substring(projectOSPath.length());
-
-      IFile suiteFile = m_javaProject.getProject().getFile(Path.fromOSString(relativeFname));      
-      if(suiteFile.exists())
-        LaunchUtil.launchSuiteConfiguration(suiteFile, m_runMode);
-      else
-        TestNGPlugin.log("Test suite not found:"+suiteFile);
-    } catch (CoreException e) {
-      TestNGPlugin.log(e);
-    }
+    DebugUITools.launch(m_previousRun.getLaunchConfiguration(), m_previousRun.getLaunchMode());    
   }
-  
 }
