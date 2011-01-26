@@ -38,6 +38,8 @@ import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
 import org.testng.ITestResult;
 import org.testng.eclipse.TestNGPlugin;
+import org.testng.eclipse.ui.tree.BaseTreeItem;
+import org.testng.eclipse.ui.tree.ITreeItem;
 import org.testng.eclipse.util.ResourceUtil;
 
 import java.text.MessageFormat;
@@ -729,18 +731,22 @@ public abstract class AbstractHierarchyTab extends TestRunTab implements IMenuLi
    */
   public void menuAboutToShow(IMenuManager manager) {
 	  if(fTree.getSelectionCount() > 0) {
-		  TreeItem treeItem = fTree.getSelection()[0];
-		  RunInfo  testInfo = (RunInfo) treeItem.getData("runinfo");
+		  //TreeItem treeItem = fTree.getSelection()[0];
+		  //RunInfo  testInfo = (RunInfo) treeItem.getData("runinfo");
+	    ITreeItem treeItem = BaseTreeItem.getTreeItem(fTree.getSelection()[0]);
+      RunInfo testInfo = treeItem.getRunInfo();
 
 		  manager.add(new OpenTestAction(fTestRunnerPart, testInfo));
 		  manager.add(new Separator());
 		  manager.add(new QuickRunAction(fTestRunnerPart.getLaunchedProject(), 
 				  fTestRunnerPart.getLastLaunch(),
 				  testInfo,
+				  treeItem.getType(),
 				  ILaunchManager.RUN_MODE));
 		  manager.add(new QuickRunAction(fTestRunnerPart.getLaunchedProject(),
 				  fTestRunnerPart.getLastLaunch(),
 				  testInfo,
+				  treeItem.getType(),
 				  ILaunchManager.DEBUG_MODE));
 		  manager.add(new Separator());
 		  manager.add(new ExpandAllAction());

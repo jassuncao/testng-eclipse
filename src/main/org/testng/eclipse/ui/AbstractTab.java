@@ -247,18 +247,21 @@ abstract public class AbstractTab extends TestRunTab implements IMenuListener {
    */
   public void menuAboutToShow(IMenuManager manager) {
     if(m_tree.getSelectionCount() > 0) {
-      TreeItem treeItem = m_tree.getSelection()[0];
-      RunInfo testInfo = BaseTreeItem.getTreeItem(treeItem).getRunInfo();
+      //TreeItem treeItem = m_tree.getSelection()[0];
+      ITreeItem treeItem = BaseTreeItem.getTreeItem( m_tree.getSelection()[0]);
+      RunInfo testInfo = treeItem.getRunInfo();
 
       manager.add(new OpenTestAction(m_testRunnerPart, testInfo));
       manager.add(new Separator());
       manager.add(new QuickRunAction(m_testRunnerPart.getLaunchedProject(), 
           m_testRunnerPart.getLastLaunch(),
           testInfo,
+          treeItem.getType(),
           ILaunchManager.RUN_MODE));
       manager.add(new QuickRunAction(m_testRunnerPart.getLaunchedProject(),
           m_testRunnerPart.getLastLaunch(),
           testInfo,
+          treeItem.getType(),
           ILaunchManager.DEBUG_MODE));
       manager.add(new Separator());
       manager.add(new ExpandAllAction());

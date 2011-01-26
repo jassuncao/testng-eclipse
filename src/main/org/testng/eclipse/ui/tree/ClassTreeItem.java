@@ -14,4 +14,8 @@ public class ClassTreeItem extends BaseTreeItem implements ITreeItem {
     getTreeItem().setImage(getSuiteImage(runInfo.getStatus()));
   }
 
+  public TreeItemType getType() {
+    return TreeItemType.CLASS;
+  }
+
 }

@@ -1,15 +1,28 @@
 package org.testng.eclipse.ui;
 
+import java.util.Collections;
+import java.util.List;
+
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchManager;
+import org.eclipse.debug.ui.DebugUITools;
+import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IMethod;
+import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jface.action.Action;
 import org.testng.eclipse.TestNGPlugin;
+import org.testng.eclipse.launch.TestNGLaunchConfigurationConstants;
+import org.testng.eclipse.ui.tree.TreeItemType;
 import org.testng.eclipse.ui.util.ConfigurationHelper;
 import org.testng.eclipse.util.JDTUtil;
 import org.testng.eclipse.util.LaunchUtil;
@@ -22,17 +35,18 @@ import org.testng.eclipse.util.ResourceUtil;
  * @author <a href='mailto:the_mindstorm[at]evolva[dot]ro'>Alexandru Popescu</a>
  */
 public class QuickRunAction extends Action {
-  private IJavaProject m_javaProject;
-  private ILaunch m_previousRun;
-  private RunInfo m_runInfo;
-  private String m_runMode;
+  private final IJavaProject m_javaProject;
+  private final ILaunch m_previousRun;
+  private final RunInfo m_runInfo;
+  private final String m_runMode;
+  private final TreeItemType m_treeItemType;
   
-  public QuickRunAction(IJavaProject javaProject, ILaunch prevLaunch, RunInfo runInfo, String mode) {
+  public QuickRunAction(IJavaProject javaProject, ILaunch prevLaunch, RunInfo runInfo, TreeItemType treeItemType, String mode) {
     m_javaProject= javaProject;
     m_previousRun= prevLaunch;
     m_runInfo= runInfo;
     m_runMode= mode;
-    
+    m_treeItemType = treeItemType;
     initUI();
   }
 
@@ -54,6 +68,23 @@ public class QuickRunAction extends Action {
   }
   
   public void run() {
+    switch (m_treeItemType) {
+    case SUITE:
+      launchSuite();
+      break;
+    case TEST:
+      launchTest();
+      break;
+    case CLASS:
+      launchClass();
+      break;      
+    default:
+      launchMethod();
+      break;
+    }    
+  }
+
+  private void launchMethod() {
     IMethod imethod= null;  
     try {
       imethod= (IMethod) JDTUtil.findElement(m_javaProject, m_runInfo); 
@@ -72,10 +103,54 @@ public class QuickRunAction extends Action {
      * methods. 
      */
     ILaunchConfiguration config = m_previousRun.getLaunchConfiguration();
+
     m_runInfo.setJvmArgs(ConfigurationHelper.getJvmArgs(config));
     LaunchUtil.launchMethodConfiguration(m_javaProject, 
         imethod, 
-        m_runMode, m_runInfo);    
+        m_runMode, m_runInfo);
+  }
+
+  private void launchClass() {    
+    IType type = null;  
+    try {
+      type = (IType) JDTUtil.findElement(m_javaProject,m_runInfo.getClassName());           
+    }
+    catch(JavaModelException jmex) {
+      TestNGPlugin.log(new Status(IStatus.ERROR, TestNGPlugin.PLUGIN_ID, 3333, 
+          "Cannot find class " + m_runInfo.getClassName(), jmex));
+    }
+
+    if(null == type) return;   
+    ILaunchConfiguration config = m_previousRun.getLaunchConfiguration();
+
+    m_runInfo.setJvmArgs(ConfigurationHelper.getJvmArgs(config));         
+    LaunchUtil.launchTypeConfiguration(m_javaProject, type, m_runMode); 
+  }
+
+  private void launchTest() {    
+    // Not supported     
+  }
+
+  private void launchSuite() {
+    ILaunchConfiguration config = m_previousRun.getLaunchConfiguration();        
+    try {
+      List list = config.getAttribute(TestNGLaunchConfigurationConstants.SUITE_TEST_LIST, Collections.EMPTY_LIST);
+      if(list == null || list.isEmpty()) return;
+      
+      //Warning!! Lazy code to get the IFile corresponding to a OS specific filename
+      String suiteOSFname = list.get(0).toString();      
+      String projectOSPath = m_javaProject.getProject().getLocation().toOSString();
+      //Discard the portion with the path of the project
+      String relativeFname = suiteOSFname.substring(projectOSPath.length());
+
+      IFile suiteFile = m_javaProject.getProject().getFile(Path.fromOSString(relativeFname));      
+      if(suiteFile.exists())
+        LaunchUtil.launchSuiteConfiguration(suiteFile, m_runMode);
+      else
+        TestNGPlugin.log("Test suite not found:"+suiteFile);
+    } catch (CoreException e) {
+      TestNGPlugin.log(e);
+    }
   }
   
 }

@@ -18,4 +18,7 @@ public interface ITreeItem {
   void addToCumulatedTime(float time);
 
   TreeItem getTreeItem();
+  
+  TreeItemType getType();
+  
 }

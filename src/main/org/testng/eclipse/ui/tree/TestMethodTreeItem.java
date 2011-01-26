@@ -47,5 +47,9 @@ public class TestMethodTreeItem extends BaseTreeItem implements ITreeItem {
         throw new IllegalArgumentException("Illegal state: state");
     }
   }
+  
+  public TreeItemType getType() {
+    return TreeItemType.METHOD;
+  }
 
 }

@@ -46,4 +46,8 @@ public class SuiteTreeItem extends BaseTreeItem implements ITreeItem {
     getTreeItem().setImage(getSuiteImage(runInfo.getStatus()));
   }
 
+  public TreeItemType getType() {
+    return TreeItemType.SUITE;
+  }
+
 }
